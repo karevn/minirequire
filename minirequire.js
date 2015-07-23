@@ -27,9 +27,14 @@
         return this.moduleStore[moduleName];
       }
       return this.require(dependencyNames, function(deps) {
+        var callback, i, len, ref;
         _this.moduleStore[moduleName] = moduleDefinition.apply(_this, arguments);
         if (_this.moduleCallbacks[moduleName]) {
-          _this.moduleCallbacks[moduleName]();
+          ref = _this.moduleCallbacks[moduleName];
+          for (i = 0, len = ref.length; i < len; i++) {
+            callback = ref[i];
+            callback();
+          }
           return delete _this.moduleCallbacks[moduleName];
         }
       });
@@ -65,9 +70,12 @@
     MiniRequire.prototype.watchForModuleLoad = function(moduleNames, moduleScript, callback, moduleName) {
       var _this;
       _this = this;
-      return this.moduleCallbacks[moduleName] = function() {
+      if (!this.moduleCallbacks[moduleName]) {
+        this.moduleCallbacks[moduleName] = [];
+      }
+      return this.moduleCallbacks[moduleName].push(function() {
         return _this.require(moduleNames, callback);
-      };
+      });
     };
 
     MiniRequire.prototype.getScriptForModule = function(module) {
