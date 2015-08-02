@@ -20,6 +20,8 @@
     }
 
     MiniRequire.prototype.define = function(moduleName, dependencyNames, moduleDefinition) {
+      var _this;
+      _this = this;
       if (this.moduleStore[moduleName]) {
         return this.moduleStore[moduleName];
       }
@@ -29,11 +31,12 @@
     };
 
     MiniRequire.prototype.require = function(moduleNames, callback) {
-      var availableModuleNames, i, len, moduleLoaded, moduleName;
+      var _this, availableModuleNames, i, len, moduleLoaded, moduleName;
       availableModuleNames = [];
       if (typeof moduleNames === 'string') {
         moduleNames = [moduleNames];
       }
+      _this = this;
       moduleLoaded = function() {
         if (availableModuleNames.length === moduleNames.length) {
           return callback.apply(_this, moduleNames.map(function(dependency) {

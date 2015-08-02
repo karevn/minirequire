@@ -5,11 +5,13 @@ class MiniRequire
     @moduleStore[module] = (-> @options.shim[module]) for module of @options.shim if @options.shim
     @define.amd = {}
   define: (moduleName, dependencyNames, moduleDefinition) ->
+    _this = this
     return @moduleStore[moduleName] if @moduleStore[moduleName]
     @require dependencyNames, (deps)-> _this.moduleStore[moduleName] = moduleDefinition.apply(_this, arguments)
   require: (moduleNames, callback) ->
     availableModuleNames = []
     moduleNames = [moduleNames] if typeof moduleNames == 'string'
+    _this = this
     moduleLoaded = ->
       if availableModuleNames.length == moduleNames.length
         callback.apply _this, moduleNames.map((dependency)-> _this.moduleStore[dependency])
@@ -22,6 +24,7 @@ class MiniRequire
           availableModuleNames.push moduleName
           moduleLoaded()
     moduleLoaded()
+    
   loadModule: (name, callback)->
     (@getScriptForModule(name) || @buildScriptForModule(name)).addEventListener 'load', callback
   getScriptForModule: (module)->
