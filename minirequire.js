@@ -17,65 +17,48 @@
         }
       }
       this.define.amd = {};
-      this.moduleCallbacks = {};
     }
 
     MiniRequire.prototype.define = function(moduleName, dependencyNames, moduleDefinition) {
-      var _this;
-      _this = this;
       if (this.moduleStore[moduleName]) {
         return this.moduleStore[moduleName];
       }
       return this.require(dependencyNames, function(deps) {
-        var callback, i, len, ref;
-        _this.moduleStore[moduleName] = moduleDefinition.apply(_this, arguments);
-        if (_this.moduleCallbacks[moduleName]) {
-          ref = _this.moduleCallbacks[moduleName];
-          for (i = 0, len = ref.length; i < len; i++) {
-            callback = ref[i];
-            callback();
-          }
-          return delete _this.moduleCallbacks[moduleName];
-        }
+        return _this.moduleStore[moduleName] = moduleDefinition.apply(_this, arguments);
       });
     };
 
     MiniRequire.prototype.require = function(moduleNames, callback) {
-      var _this, availableModuleNames, i, len, moduleName, moduleScript;
+      var availableModuleNames, i, len, moduleLoaded, moduleName;
       availableModuleNames = [];
       if (typeof moduleNames === 'string') {
         moduleNames = [moduleNames];
       }
-      _this = this;
+      moduleLoaded = function() {
+        if (availableModuleNames.length === moduleNames.length) {
+          return callback.apply(_this, moduleNames.map(function(dependency) {
+            return _this.moduleStore[dependency];
+          }));
+        } else {
+          return void 0;
+        }
+      };
       for (i = 0, len = moduleNames.length; i < len; i++) {
         moduleName = moduleNames[i];
         if (this.moduleStore[moduleName]) {
           availableModuleNames.push(moduleName);
         } else {
-          if (moduleScript = this.getScriptForModule(moduleName)) {
-            _this.watchForModuleLoad(moduleNames, moduleScript, callback, moduleName);
-          } else {
-            _this.watchForModuleLoad(moduleNames, moduleScript = this.buildScriptForModule(moduleName), callback, moduleName);
-            document.body.appendChild(moduleScript);
-          }
+          this.loadModule(moduleName, function() {
+            availableModuleNames.push(moduleName);
+            return moduleLoaded();
+          });
         }
       }
-      if (availableModuleNames.length === moduleNames.length) {
-        return callback.apply(_this, moduleNames.map(function(dependency) {
-          return _this.moduleStore[dependency];
-        }));
-      }
+      return moduleLoaded();
     };
 
-    MiniRequire.prototype.watchForModuleLoad = function(moduleNames, moduleScript, callback, moduleName) {
-      var _this;
-      _this = this;
-      if (!this.moduleCallbacks[moduleName]) {
-        this.moduleCallbacks[moduleName] = [];
-      }
-      return this.moduleCallbacks[moduleName].push(function() {
-        return _this.require(moduleNames, callback);
-      });
+    MiniRequire.prototype.loadModule = function(name, callback) {
+      return (this.getScriptForModule(name) || this.buildScriptForModule(name)).addEventListener('load', callback);
     };
 
     MiniRequire.prototype.getScriptForModule = function(module) {
@@ -93,6 +76,7 @@
       moduleScript = document.createElement('script');
       moduleScript.src = this.options.baseUrl + "/" + module + ".js";
       moduleScript.setAttribute('data-module-name', module);
+      document.body.appendChild(moduleScript);
       return moduleScript;
     };
 
