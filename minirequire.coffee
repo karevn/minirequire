@@ -2,52 +2,41 @@ class MiniRequire
   constructor: (@options = {})->
     @options.baseUrl = "/" unless @options.baseUrl
     @moduleStore = {}
+    @watched = {}
     @moduleStore[module] = (-> @options.shim[module]) for module of @options.shim if @options.shim
     @define.amd = {}
-    @watched = {}
   define: (moduleName, dependencyNames, moduleDefinition) ->
-    _this = this
-    return @moduleStore[moduleName] if @moduleStore[moduleName]
-    @require dependencyNames, (deps)-> 
-      _this.moduleStore[moduleName] = moduleDefinition.apply(_this, arguments)
-      @resolve moduleName
+    return if @moduleStore[moduleName]
+    @require dependencyNames, (deps)=> 
+      @moduleStore[moduleName] = moduleDefinition.apply(this, arguments)
+      @onLoad moduleName
   waitFor: (moduleName, callback)->
-    unless callbacks = @watched[moduleName]
-      @watched[moduleName] = []
+    @watched[moduleName] = [] unless @watched[moduleName]
     @watched[moduleName].push callback
-  resolve: (moduleName)->
+  onLoad: (moduleName)->
     return unless @watched[moduleName]
     callback.call this, @moduleStore[moduleName] for callback in @watched[moduleName]
+    delete @watched[moduleName]
   require: (moduleNames, callback) ->
     availableModuleNames = []
     moduleNames = [moduleNames] if typeof moduleNames == 'string'
-    _this = this
-    moduleLoaded = ->
+    moduleLoaded = =>
       if availableModuleNames.length == moduleNames.length
-        callback.apply _this, moduleNames.map((dependency)-> _this.moduleStore[dependency])
-      else undefined
+        callback.apply this, moduleNames.map((dependency)=> @moduleStore[dependency])
     for moduleName in moduleNames
       if @moduleStore[moduleName]
         availableModuleNames.push moduleName
       else
-        @loadModule moduleName, ->
+        @waitFor moduleName, =>
           availableModuleNames.push moduleName
           moduleLoaded()
+        @buildScriptForModule(moduleName) unless @hasScriptForModule(moduleName)
     moduleLoaded()
-  loadModule: (name, callback)->
-    (@getScriptForModule(name) || @buildScriptForModule(name)).addEventListener 'load', =>
-      if @moduleStore[name]
-        callback()
-      else
-        @waitFor(name, callback)
-  getScriptForModule: (module)->
-    query = document.querySelectorAll('[data-module-name="' + module + '"]')
-    if query.length > 0 then query[0] else null
-  buildScriptForModule: (module)->
+  hasScriptForModule: (module)-> document.querySelectorAll('[data-module-name="' + module + '"]').length > 0
+  buildScriptForModule: (module, callback)->
     moduleScript = document.createElement('script')
     moduleScript.src = "#{@options.baseUrl}/#{module}.js"
     moduleScript.setAttribute 'data-module-name', module
     document.body.appendChild moduleScript
-    moduleScript
 module.exports = MiniRequire if module.exports
 window.MiniRequire = MiniRequire if typeof(window) != 'undefined'
