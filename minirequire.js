@@ -17,6 +17,7 @@
         }
       }
       this.define.amd = {};
+      this.watched = {};
     }
 
     MiniRequire.prototype.define = function(moduleName, dependencyNames, moduleDefinition) {
@@ -26,8 +27,31 @@
         return this.moduleStore[moduleName];
       }
       return this.require(dependencyNames, function(deps) {
-        return _this.moduleStore[moduleName] = moduleDefinition.apply(_this, arguments);
+        _this.moduleStore[moduleName] = moduleDefinition.apply(_this, arguments);
+        return this.resolve(moduleName);
       });
+    };
+
+    MiniRequire.prototype.waitFor = function(moduleName, callback) {
+      var callbacks;
+      if (!(callbacks = this.watched[moduleName])) {
+        this.watched[moduleName] = [];
+      }
+      return this.watched[moduleName].push(callback);
+    };
+
+    MiniRequire.prototype.resolve = function(moduleName) {
+      var callback, i, len, ref, results;
+      if (!this.watched[moduleName]) {
+        return;
+      }
+      ref = this.watched[moduleName];
+      results = [];
+      for (i = 0, len = ref.length; i < len; i++) {
+        callback = ref[i];
+        results.push(callback.call(this, this.moduleStore[moduleName]));
+      }
+      return results;
     };
 
     MiniRequire.prototype.require = function(moduleNames, callback) {
@@ -61,7 +85,15 @@
     };
 
     MiniRequire.prototype.loadModule = function(name, callback) {
-      return (this.getScriptForModule(name) || this.buildScriptForModule(name)).addEventListener('load', callback);
+      return (this.getScriptForModule(name) || this.buildScriptForModule(name)).addEventListener('load', (function(_this) {
+        return function() {
+          if (_this.moduleStore[name]) {
+            return callback();
+          } else {
+            return _this.waitFor(name, callback);
+          }
+        };
+      })(this));
     };
 
     MiniRequire.prototype.getScriptForModule = function(module) {

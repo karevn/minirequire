@@ -4,10 +4,20 @@ class MiniRequire
     @moduleStore = {}
     @moduleStore[module] = (-> @options.shim[module]) for module of @options.shim if @options.shim
     @define.amd = {}
+    @watched = {}
   define: (moduleName, dependencyNames, moduleDefinition) ->
     _this = this
     return @moduleStore[moduleName] if @moduleStore[moduleName]
-    @require dependencyNames, (deps)-> _this.moduleStore[moduleName] = moduleDefinition.apply(_this, arguments)
+    @require dependencyNames, (deps)-> 
+      _this.moduleStore[moduleName] = moduleDefinition.apply(_this, arguments)
+      @resolve moduleName
+  waitFor: (moduleName, callback)->
+    unless callbacks = @watched[moduleName]
+      @watched[moduleName] = []
+    @watched[moduleName].push callback
+  resolve: (moduleName)->
+    return unless @watched[moduleName]
+    callback.call this, @moduleStore[moduleName] for callback in @watched[moduleName]
   require: (moduleNames, callback) ->
     availableModuleNames = []
     moduleNames = [moduleNames] if typeof moduleNames == 'string'
@@ -24,9 +34,12 @@ class MiniRequire
           availableModuleNames.push moduleName
           moduleLoaded()
     moduleLoaded()
-    
   loadModule: (name, callback)->
-    (@getScriptForModule(name) || @buildScriptForModule(name)).addEventListener 'load', callback
+    (@getScriptForModule(name) || @buildScriptForModule(name)).addEventListener 'load', =>
+      if @moduleStore[name]
+        callback()
+      else
+        @waitFor(name, callback)
   getScriptForModule: (module)->
     query = document.querySelectorAll('[data-module-name="' + module + '"]')
     if query.length > 0 then query[0] else null
